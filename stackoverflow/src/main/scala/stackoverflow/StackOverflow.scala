@@ -24,12 +24,12 @@ object StackOverflow extends StackOverflow {
     val raw     = rawPostings(lines)
     val grouped = groupedPostings(raw)
     val scored  = scoredPostings(grouped)
-//    val vectors = vectorPostings(scored)
-////    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
-//
-//    val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
-//    val results = clusterResults(means, vectors)
-//    printResults(results)
+    val vectors = vectorPostings(scored)
+//    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
+
+    val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
+    val results = clusterResults(means, vectors)
+    printResults(results)
   }
 }
 
@@ -133,7 +133,7 @@ class StackOverflow extends StackOverflowInterface with Serializable {
       case Some(i) => Some((i * langSpread, hs))
       case None => None
     }
-    }
+    }.cache()
   }
 
 
@@ -291,10 +291,26 @@ class StackOverflow extends StackOverflowInterface with Serializable {
     val closestGrouped = closest.groupByKey()
 
     val median = closestGrouped.mapValues { vs =>
-      val langLabel: String   = ??? // most common language in the cluster
-      val langPercent: Double = ??? // percent of the questions in the most common language
-      val clusterSize: Int    = ???
-      val medianScore: Int    = ???
+      val mostCommonLangPoint: Int =
+        vs
+        .groupBy { case (langPoint, _) => langPoint }
+        .map { case (langPoint, scores) => (langPoint, scores.size) }
+        .toList
+        .minBy { case (_, occ) => -occ }
+        ._1
+
+      val langLabel: String = langs(mostCommonLangPoint / langSpread)
+
+      val langPercent: Double = 100.0 * vs.count { case (langPoint, _) => langPoint == mostCommonLangPoint } / vs.size
+
+      val clusterSize: Int = vs.size
+
+      val medianScore: Int = {
+        val sortedScores = vs.map { case (_, score) => score }.toList.sorted
+        val middle = sortedScores.size / 2
+
+        if (sortedScores.size % 2 == 0) (sortedScores(middle) + sortedScores(middle - 1)) / 2 else sortedScores(middle)
+      }
 
       (langLabel, langPercent, clusterSize, medianScore)
     }
