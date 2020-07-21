@@ -24,12 +24,15 @@ object StackOverflow extends StackOverflow {
     val raw     = rawPostings(lines)
     val grouped = groupedPostings(raw)
     val scored  = scoredPostings(grouped)
-    val vectors = vectorPostings(scored)
-//    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
-
-    val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
-    val results = clusterResults(means, vectors)
-    printResults(results)
+    println("________")
+    scored.take(5).foreach {case (a,b) => println(b)}
+    println("________")
+//    val vectors = vectorPostings(scored)
+////    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
+//
+//    val means   = kmeans(sampleVectors(vectors), vectors, debug = true)
+//    val results = clusterResults(means, vectors)
+//    printResults(results)
   }
 }
 
@@ -94,7 +97,6 @@ class StackOverflow extends StackOverflowInterface with Serializable {
 
   /** Compute the maximum score for each posting */
   def scoredPostings(grouped: RDD[(QID, Iterable[(Question, Answer)])]): RDD[(Question, HighScore)] = {
-
     def answerHighScore(as: Array[Answer]): HighScore = {
       var highScore = 0
           var i = 0
@@ -107,7 +109,10 @@ class StackOverflow extends StackOverflowInterface with Serializable {
       highScore
     }
 
-    ???
+    grouped
+      .flatMap { case(_, qas) => qas }
+      .groupByKey
+      .mapValues(answers => answerHighScore(answers.toArray))
   }
 
 
