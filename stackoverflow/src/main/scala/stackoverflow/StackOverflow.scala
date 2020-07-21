@@ -24,9 +24,6 @@ object StackOverflow extends StackOverflow {
     val raw     = rawPostings(lines)
     val grouped = groupedPostings(raw)
     val scored  = scoredPostings(grouped)
-    println("________")
-    scored.take(5).foreach {case (a,b) => println(b)}
-    println("________")
 //    val vectors = vectorPostings(scored)
 ////    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
 //
@@ -132,7 +129,11 @@ class StackOverflow extends StackOverflowInterface with Serializable {
       }
     }
 
-    ???
+    scored.flatMap { case (q, hs) => firstLangInTag(q.tags, langs) match {
+      case Some(i) => Some((i * langSpread, hs))
+      case None => None
+    }
+    }
   }
 
 
