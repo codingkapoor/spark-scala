@@ -30,7 +30,7 @@ object TimeUsage extends TimeUsageInterface {
   }
 
   def timeUsageByLifePeriod(): Unit = {
-    val (columns, initDf) = read("src/main/resources/timeusage/atussum.csv")
+    val (columns, initDf) = read("/timeusage/atussum.csv")
     val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
     val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
     val finalDf = timeUsageGrouped(summaryDf)
@@ -46,7 +46,7 @@ object TimeUsage extends TimeUsageInterface {
     val schema =
       StructType(
         StructField(fields.head, StringType, nullable = false)
-          :: fields.map(StructField(_, DoubleType, nullable = false))
+          :: fields.tail.map(StructField(_, DoubleType, nullable = false))
       )
 
     val rowRDD = rdd
@@ -165,9 +165,9 @@ object TimeUsage extends TimeUsageInterface {
     // Hint: you want to create a complex column expression that sums other columns
     //       by using the `+` operator between them
     // Hint: don’t forget to convert the value to hours
-    val primaryNeedsProjection: Column = primaryNeedsColumns.reduce(_+_) / lit(60)
-    val workProjection: Column = workColumns.reduce(_+_) / lit(60)
-    val otherProjection: Column = otherColumns.reduce(_+_) / lit(60)
+    val primaryNeedsProjection: Column = (primaryNeedsColumns.reduce(_+_) / lit(60)).as("primaryNeeds")
+    val workProjection: Column = (workColumns.reduce(_+_) / lit(60)).as("work")
+    val otherProjection: Column = (otherColumns.reduce(_+_) / lit(60)).as("other")
 
     df
       .select(workingStatusProjection, sexProjection, ageProjection, primaryNeedsProjection, workProjection, otherProjection)
@@ -192,7 +192,14 @@ object TimeUsage extends TimeUsageInterface {
     * Finally, the resulting DataFrame should be sorted by working status, sex and age.
     */
   def timeUsageGrouped(summed: DataFrame): DataFrame = {
-    ???
+    summed
+      .groupBy($"working", $"sex", $"age")
+      .agg(
+        round(avg($"primaryNeeds"), 1).as("primaryNeeds"),
+        round(avg($"work"), 1).as("work"),
+        round(avg($"other"), 1).as("other")
+      )
+      .orderBy($"working", $"sex", $"age")
   }
 
   /**
