@@ -84,6 +84,8 @@ object TimeUsage extends TimeUsageInterface {
       }
     }
 
+    assert(columnNames.nonEmpty, "columnNames can't be empty")
+
     prepareCols(columnNames, Nil, Nil, Nil)
   }
 
