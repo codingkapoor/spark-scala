@@ -1,5 +1,7 @@
 package timeusage
 
+import java.nio.file.Paths
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
@@ -37,8 +39,22 @@ object TimeUsage extends TimeUsageInterface {
 
   /** @return The read DataFrame along with its column names. */
   def read(path: String): (List[String], DataFrame) = {
-    val df = spark.read.options(Map("header" -> "true", "inferSchema" -> "true")).csv(path)
-    (df.schema.fields.map(_.name).toList, df)
+    val rdd = spark.sparkContext.textFile(Paths.get(getClass.getResource(path).toURI).toString)
+
+    val fields = rdd.first.split(",").toList
+
+    val schema =
+      StructType(
+        StructField(fields.head, StringType, nullable = false)
+          :: fields.map(StructField(_, DoubleType, nullable = false))
+      )
+
+    val rowRDD = rdd
+      .mapPartitionsWithIndex((index, iterator) => if (index == 0) iterator.drop(1) else iterator)
+      .map(_.split(",").to[List])
+      .map(row)
+
+    (fields, spark.createDataFrame(rowRDD, schema))
   }
 
   /** @return An RDD Row compatible with the schema produced by `dfSchema`
