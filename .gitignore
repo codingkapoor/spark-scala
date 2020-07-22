@@ -6,4 +6,7 @@
 wikipedia/src/main/resources/wikipedia/wikipedia.dat
 stackoverflow/src/main/resources/stackoverflow/stackoverflow.csv
 timeusage/src/main/resources/timeusage/atussum.csv
+timeusage/src/main/main.iml
+timeusage/src/test/test.iml
+
 *.log

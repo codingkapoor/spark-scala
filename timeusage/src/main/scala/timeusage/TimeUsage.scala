@@ -3,6 +3,8 @@ package timeusage
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
+import scala.annotation.tailrec
+
 /** Main class */
 object TimeUsage extends TimeUsageInterface {
 
@@ -43,7 +45,7 @@ object TimeUsage extends TimeUsageInterface {
     * @param line Raw fields
     */
   def row(line: List[String]): Row =
-    ???
+    Row.fromSeq(line.head :: line.tail.map(_.toDouble))
 
   /** @return The initial data frame columns partitioned in three groups: primary needs (sleeping, eating, etc.),
     *         work and other (leisure activities)
@@ -61,7 +63,28 @@ object TimeUsage extends TimeUsageInterface {
     *    “t10”, “t12”, “t13”, “t14”, “t15”, “t16” and “t18” (those which are not part of the previous groups only).
     */
   def classifiedColumns(columnNames: List[String]): (List[Column], List[Column], List[Column]) = {
-    ???
+    val primaryNeedsPrefix = List("t01", "t03", "t11", "t1801", "t1803")
+    val workingActivitiesPrefix = List("t05", "t1805")
+    val otherActivitiesPrefix = List("t02", "t04", "t06", "t07", "t08", "t09", "t10", "t12", "t13", "t14", "t15", "t16", "t18")
+
+    @tailrec
+    def prepareCols(columnNames: List[String], primaryNeedsCols: List[Column], workingActivitiesCols: List[Column], otherActivitiesCols: List[Column]):
+    (List[Column], List[Column], List[Column]) = {
+      columnNames match {
+        case x :: Nil =>
+          if (primaryNeedsPrefix.exists(x.startsWith)) (col(x) :: primaryNeedsCols, workingActivitiesCols, otherActivitiesCols)
+          else if (workingActivitiesPrefix.exists(x.startsWith)) (primaryNeedsCols, col(x) :: workingActivitiesCols, otherActivitiesCols)
+          else if (otherActivitiesPrefix.exists(x.startsWith)) (primaryNeedsCols, workingActivitiesCols, col(x) :: otherActivitiesCols)
+          else (primaryNeedsCols, workingActivitiesCols, otherActivitiesCols)
+        case x :: y =>
+          if (primaryNeedsPrefix.exists(x.startsWith)) prepareCols(y, col(x) :: primaryNeedsCols, workingActivitiesCols, otherActivitiesCols)
+          else if (workingActivitiesPrefix.exists(x.startsWith)) prepareCols(y, primaryNeedsCols, col(x) :: workingActivitiesCols, otherActivitiesCols)
+          else if (otherActivitiesPrefix.exists(x.startsWith)) prepareCols(y, primaryNeedsCols, workingActivitiesCols, col(x) :: otherActivitiesCols)
+          else prepareCols(y, primaryNeedsCols, workingActivitiesCols, otherActivitiesCols)
+      }
+    }
+
+    prepareCols(columnNames, Nil, Nil, Nil)
   }
 
   /** @return a projection of the initial DataFrame such that all columns containing hours spent on primary needs
